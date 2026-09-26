@@ -2,3 +2,4 @@ target/
 performance-reports/
 *.log
 .env
+uploaded-projects/
