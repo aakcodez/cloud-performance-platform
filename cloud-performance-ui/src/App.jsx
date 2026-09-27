@@ -2,366 +2,314 @@ import { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
-  const [apiStatus, setApiStatus] = useState('Checking...');
   const [apiOnline, setApiOnline] = useState(false);
   const [report, setReport] = useState(null);
+  const [score, setScore] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [projectName, setProjectName] = useState('');
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+  const checkHealth = async () => {
+    try {
+      const response = await fetch('/api/health');
 
-  const fetchReport = () => {
-    fetch('/api/performance/report')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Performance report unavailable');
-        }
+      if (!response.ok) {
+        throw new Error();
+      }
 
-        return response.json();
-      })
-      .then((data) => {
-        setReport(data);
-      })
-      .catch((error) => {
-        console.error('Report error:', error);
-        setReport(null);
-      });
+      setApiOnline(true);
+    } catch {
+      setApiOnline(false);
+    }
+  };
+
+  const loadReport = async () => {
+    try {
+      const response = await fetch('/api/performance/report');
+
+      if (!response.ok) {
+        throw new Error();
+      }
+
+      const data = await response.json();
+      setReport(data);
+    } catch {
+      setReport(null);
+    }
+  };
+
+  const loadScore = async () => {
+    try {
+      const response = await fetch('/api/performance/score');
+
+      if (!response.ok) {
+        throw new Error();
+      }
+
+      const data = await response.json();
+      setScore(data);
+    } catch {
+      setScore(null);
+    }
+  };
+
+  const refreshData = async () => {
+    setLoading(true);
+
+    await Promise.all([
+      checkHealth(),
+      loadReport(),
+      loadScore(),
+    ]);
+
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetch('/api/health')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('API unavailable');
-        }
-
-        return response.text();
-      })
-      .then((data) => {
-        setApiStatus(data);
-        setApiOnline(true);
-      })
-      .catch((error) => {
-        console.error('API error:', error);
-        setApiStatus('API is unavailable');
-        setApiOnline(false);
-      });
-
-    fetchReport();
+    refreshData();
   }, []);
 
-  const handleProjectFolderChange = (event) => {
-    const allFiles = Array.from(event.target.files);
-
-    if (allFiles.length === 0) {
-      setSelectedFiles([]);
-      setProjectName('');
-      setUploadStatus('');
-      return;
-    }
-
-    const ignoredDirectories = [
-      'build',
-      '.git',
-      '.dart_tool',
-      '.idea',
-      '.gradle',
-      'node_modules',
-      'target',
-    ];
-
-    const files = allFiles.filter((file) => {
-      const path = file.webkitRelativePath || file.name;
-      const parts = path.split('/');
-
-      return !parts.some((part) =>
-        ignoredDirectories.includes(part)
-      );
-    });
-
-    setSelectedFiles(files);
-
-    const firstPath = files[0]?.webkitRelativePath;
-
-    if (firstPath) {
-      const firstFolder = firstPath.split('/')[0];
-      setProjectName(firstFolder);
-    } else {
-      setProjectName('Selected Project');
-    }
-
-    const ignoredCount = allFiles.length - files.length;
-
-    setUploadStatus(
-      `${files.length} files selected` +
-      (ignoredCount > 0
-        ? ` (${ignoredCount} generated/unnecessary files excluded)`
-        : '')
-    );
-  };
-  const uploadProject = async () => {
-    if (selectedFiles.length === 0) {
-      setUploadStatus('Please select a project folder first.');
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadStatus(
-      `Uploading ${selectedFiles.length} files...`
-    );
-
-    try {
-      const formData = new FormData();
-
-      selectedFiles.forEach((file) => {
-        formData.append(
-          'files',
-          file,
-          file.webkitRelativePath || file.name
-        );
-      });
-
-      const response = await fetch('/api/projects/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const message = await response.text();
-
-      if (!response.ok) {
-        throw new Error(message || 'Project upload failed.');
-      }
-
-      setUploadStatus(message);
-
-    } catch (error) {
-      console.error('Upload error:', error);
-
-      setUploadStatus(
-        `Upload failed: ${error.message}`
-      );
-
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <div className="app">
+    <div className="wrap">
 
-      <header className="header">
+      <header>
         <div>
           <h1>Cloud Performance Platform</h1>
-          <p>Application Performance Dashboard</p>
+
+          <p className="sub">
+            k6 load test results, extracted metrics, and scoring
+          </p>
         </div>
 
-        <div className="status-badge">
+        <div className="health">
           <span
-            className={`status-dot ${apiOnline ? 'online' : 'offline'}`}
-          ></span>
+            className={
+              apiOnline
+                ? 'dot up'
+                : 'dot down'
+            }
+          />
 
-          {apiOnline ? 'API Online' : 'API Offline'}
+          <span>
+            {apiOnline
+              ? 'API online'
+              : 'API unreachable'}
+          </span>
         </div>
       </header>
 
-      <main className="dashboard">
+      <div className="grid">
 
-        <section className="status-card">
-          <div>
-            <p className="label">API STATUS</p>
-            <h2>{apiStatus}</h2>
+        <div>
+
+          <div className="card">
+            <h2>Upload report</h2>
+
+            <div className="drop">
+              <p>
+                <strong>
+                  k6-summary.json
+                </strong>
+              </p>
+
+              <div className="file">
+                Report upload will be connected
+                to the backend next.
+              </div>
+            </div>
+
+            <button disabled>
+              Upload report
+            </button>
+
+            <div className="status-line">
+              Project-based performance analysis
+              is being integrated.
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Actions</h2>
+
+            <button
+              className="ghost"
+              onClick={refreshData}
+              disabled={loading}
+            >
+              {loading
+                ? 'Refreshing…'
+                : 'Refresh report & score'}
+            </button>
+          </div>
+
+        </div>
+
+        <div>
+
+          <div className="card">
+            <h2>Performance score</h2>
+
+            {score ? (
+              <Score score={score} />
+            ) : (
+              <p className="empty">
+                No score yet — upload a report
+                to calculate one.
+              </p>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>Extracted metrics</h2>
+
+            {report ? (
+              <Report report={report} />
+            ) : (
+              <p className="empty">
+                No report loaded yet.
+              </p>
+            )}
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function Score({ score }) {
+  const rating = score.rating || '—';
+
+  const ratingLower =
+    rating.toLowerCase();
+
+  let ratingClass = 'poor';
+
+  if (ratingLower.includes('excel')) {
+    ratingClass = 'excellent';
+  } else if (ratingLower.includes('good')) {
+    ratingClass = 'good';
+  } else if (ratingLower.includes('improve')) {
+    ratingClass = 'needs';
+  }
+
+  return (
+    <>
+      <div className="score-row">
+
+        <div>
+          <div className="score-num">
+            {typeof score.score === 'number'
+              ? score.score.toFixed(1)
+              : score.score}
           </div>
 
           <div
-            className={`health-icon ${
-              apiOnline ? 'healthy' : 'unhealthy'
-            }`}
+            className={`rating ${ratingClass}`}
           >
-            {apiOnline ? '✓' : '!'}
+            {rating}
           </div>
-        </section>
+        </div>
 
-        <section className="upload-card">
+      </div>
 
-          <div>
-            <p className="label">PROJECT ANALYSIS</p>
+      <div className="bars">
 
-            <h2>Analyze Your Application</h2>
+        <ScoreBar
+          label="Response time"
+          value={score.responseTimeScore}
+        />
 
-            <p className="upload-description">
-              Select your complete project folder. The platform will
-              preserve the folder structure and use it for performance
-              analysis.
-            </p>
+        <ScoreBar
+          label="Reliability"
+          value={score.reliabilityScore}
+        />
+
+        <ScoreBar
+          label="Throughput"
+          value={score.throughputScore}
+        />
+
+      </div>
+    </>
+  );
+}
+
+function ScoreBar({ label, value }) {
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : 0;
+
+  return (
+    <div className="bar-row">
+
+      <div className="label">
+        <span>{label}</span>
+
+        <span>
+          {numericValue}
+        </span>
+      </div>
+
+      <div className="bar-track">
+        <div
+          className="bar-fill"
+          style={{
+            width: `${numericValue}%`,
+          }}
+        />
+      </div>
+
+    </div>
+  );
+}
+
+function Report({ report }) {
+  const items = [
+    [
+      'Total requests',
+      report.totalRequests,
+    ],
+    [
+      'Error rate',
+      `${report.errorRate ?? '—'}%`,
+    ],
+    [
+      'Avg response',
+      `${report.averageResponseTime ?? '—'} ms`,
+    ],
+    [
+      'P95 response',
+      `${report.p95ResponseTime ?? '—'} ms`,
+    ],
+    [
+      'Max response',
+      `${report.maxResponseTime ?? '—'} ms`,
+    ],
+    [
+      'Req / sec',
+      report.requestsPerSecond ?? '—',
+    ],
+  ];
+
+  return (
+    <div className="metrics">
+
+      {items.map(([label, value]) => (
+        <div
+          className="metric"
+          key={label}
+        >
+          <div className="v">
+            {value}
           </div>
 
-          <div className="upload-controls">
-
-            <label className="file-input">
-              <input
-                type="file"
-                webkitdirectory=""
-                directory=""
-                multiple
-                onChange={handleProjectFolderChange}
-              />
-
-              <span>
-                {projectName
-                  ? `📁 ${projectName}`
-                  : 'Choose Project Folder'}
-              </span>
-            </label>
-
-            <button
-              onClick={uploadProject}
-              disabled={
-                isUploading || selectedFiles.length === 0
-              }
-            >
-              {isUploading ? 'Uploading...' : 'Analyze Project'}
-            </button>
-
+          <div className="l">
+            {label}
           </div>
+        </div>
+      ))}
 
-          {selectedFiles.length > 0 && (
-            <div className="upload-status">
-
-              <p>
-                <strong>{projectName}</strong>
-              </p>
-
-              <p>{selectedFiles.length} files selected</p>
-
-              <p>Folder structure detected ✓</p>
-
-            </div>
-          )}
-
-          {uploadStatus && (
-            <p className="upload-status">
-              {uploadStatus}
-            </p>
-          )}
-
-        </section>
-
-        {report ? (
-          <>
-            <div className="section-heading">
-              <p className="label">PERFORMANCE</p>
-              <h2>Application Performance</h2>
-            </div>
-
-            <section className="metrics-grid">
-
-              <div className="metric-card">
-                <p className="label">AVERAGE RESPONSE</p>
-                <h2>
-                  {report.averageResponseTime.toFixed(2)}
-                  <span> ms</span>
-                </h2>
-              </div>
-
-              <div className="metric-card">
-                <p className="label">P95 RESPONSE</p>
-                <h2>
-                  {report.p95ResponseTime.toFixed(2)}
-                  <span> ms</span>
-                </h2>
-              </div>
-
-              <div className="metric-card">
-                <p className="label">MAX RESPONSE</p>
-                <h2>
-                  {report.maxResponseTime.toFixed(2)}
-                  <span> ms</span>
-                </h2>
-              </div>
-
-              <div className="metric-card">
-                <p className="label">TOTAL REQUESTS</p>
-                <h2>{report.totalRequests}</h2>
-              </div>
-
-              <div className="metric-card">
-                <p className="label">ERROR RATE</p>
-                <h2>
-                  {report.errorRate.toFixed(2)}
-                  <span> %</span>
-                </h2>
-              </div>
-
-              <div className="metric-card">
-                <p className="label">REQUESTS / SEC</p>
-                <h2>
-                  {report.requestsPerSecond.toFixed(2)}
-                </h2>
-              </div>
-
-            </section>
-
-            <div className="section-heading">
-              <p className="label">QUALITY CHECKS</p>
-              <h2>Performance Thresholds</h2>
-            </div>
-
-            <section className="threshold-card">
-
-              <div className="threshold-row">
-                <div>
-                  <strong>P95 Response Time</strong>
-                  <p>Target: less than 500 ms</p>
-                </div>
-
-                <span
-                  className={
-                    report.p95ResponseTime < 500
-                      ? 'pass'
-                      : 'fail'
-                  }
-                >
-                  {report.p95ResponseTime < 500
-                    ? '✓ PASS'
-                    : '✗ FAIL'}
-                </span>
-              </div>
-
-              <div className="threshold-row">
-                <div>
-                  <strong>Error Rate</strong>
-                  <p>Target: less than 1%</p>
-                </div>
-
-                <span
-                  className={
-                    report.errorRate < 1
-                      ? 'pass'
-                      : 'fail'
-                  }
-                >
-                  {report.errorRate < 1
-                    ? '✓ PASS'
-                    : '✗ FAIL'}
-                </span>
-              </div>
-
-            </section>
-          </>
-        ) : (
-          <section className="status-card">
-            <div>
-              <p className="label">PERFORMANCE REPORT</p>
-              <h2>No performance report available yet</h2>
-              <p>
-                Analyze a project to generate performance metrics.
-              </p>
-            </div>
-          </section>
-        )}
-
-      </main>
     </div>
   );
 }
