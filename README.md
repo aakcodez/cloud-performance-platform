@@ -373,3 +373,31 @@ Planned improvements include:
 MCA Student | Software & Cloud/DevOps Projects
 
 GitHub: [@aakcodez](https://github.com/aakcodez)
+
+## Current Development Status
+
+The platform is currently being developed in stages.
+
+### Implemented
+
+* Spring Boot performance analysis backend
+* k6-based HTTP performance testing
+* Performance report extraction
+* Response time, reliability, and throughput scoring
+* REST APIs for health, reports, and scores
+* Docker support for the backend
+* GitHub Actions CI pipeline
+* React-based performance dashboard
+* Project upload foundation for complete project folders
+* Java/Maven project type detection
+* Initial project build workflow
+
+### Planned
+
+* Run uploaded projects in isolated Docker environments
+* Automatically execute performance tests against uploaded projects
+* Support additional project types such as Node.js and Python
+* Display project analysis and performance results through the React dashboard
+* Add performance history and comparison
+* Improve security and resource isolation for uploaded projects
+
